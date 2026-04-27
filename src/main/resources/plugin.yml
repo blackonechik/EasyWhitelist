@@ -1,0 +1,14 @@
+name: EasyWhitelist
+version: ${version}
+main: xyz.nikitacartes.easywhitelist.EasyWhitelist
+api-version: '1.21'
+author: NikitaCartes
+description: Whitelist players from PostgreSQL
+commands:
+  easywhitelist:
+    description: Manage PostgreSQL-backed whitelist
+    usage: /easywhitelist reload|add <nick>|remove <nick>|list
+permissions:
+  easywhitelist.admin:
+    description: Allows reloading the whitelist cache
+    default: op

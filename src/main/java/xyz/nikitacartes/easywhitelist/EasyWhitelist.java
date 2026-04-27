@@ -1,54 +1,116 @@
 package xyz.nikitacartes.easywhitelist;
 
-import com.mojang.brigadier.context.CommandContext;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.server.players.NameAndId;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.core.UUIDUtil;
-import org.apache.logging.log4j.LogManager;
-import xyz.nikitacartes.easywhitelist.commands.*;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.plugin.java.JavaPlugin;
+import xyz.nikitacartes.easywhitelist.storage.WhitelistStore;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-public class EasyWhitelist implements ModInitializer {
+public final class EasyWhitelist extends JavaPlugin implements CommandExecutor {
 
-    public static Collection<NameAndId> getProfileFromNickname(String name, CommandContext<CommandSourceStack> ctx) {
-        return Collections.singletonList(Objects.requireNonNullElseGet(getOnlineProfileFromNickname(name, ctx), () -> getOfflineProfileFromNickname(name)));
-    }
+    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacyAmpersand();
 
-    public static NameAndId getOfflineProfileFromNickname(String name) {
-        return new NameAndId(UUIDUtil.createOfflinePlayerUUID(name), name);
-    }
-
-    public static NameAndId getOnlineProfileFromNickname(String name, CommandContext<CommandSourceStack> ctx) {
-        ServerPlayer player = ctx.getSource().getServer().getPlayerList().getPlayerByName(name);
-        if (player == null) {
-            return null;
-        }
-        return new NameAndId(player.getGameProfile());
-    }
-
-    public static boolean permissionsLoaded = false;
+    private WhitelistStore whitelistStore;
 
     @Override
-    public void onInitialize() {
-        LogManager.getLogger().info("[EasyWhitelist] Whitelist is now name-based.");
+    public void onEnable() {
+        saveDefaultConfig();
 
-        CommandRegistrationCallback.EVENT.register((dispatcher, dedicated, environment) -> {
-            EasyWhitelistCommand.registerCommand(dispatcher);
-            EasyBanCommand.registerCommand(dispatcher);
-            EasyPardonCommand.registerCommand(dispatcher);
-            EasyOpCommand.registerCommand(dispatcher);
-            EasyDeOpCommand.registerCommand(dispatcher);
-        });
-
-        if (FabricLoader.getInstance().isModLoaded("fabric-permissions-api-v0")) {
-            permissionsLoaded = true;
+        try {
+            whitelistStore = new WhitelistStore(this);
+            whitelistStore.initialize();
+        } catch (Exception exception) {
+            getLogger().severe("Failed to initialize PostgreSQL whitelist storage: " + exception.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
         }
+
+        getServer().getPluginManager().registerEvents(new LoginListener(this), this);
+        if (getCommand("easywhitelist") != null) {
+            getCommand("easywhitelist").setExecutor(this);
+        }
+
+        long refreshTicks = Math.max(20L, getConfig().getLong("refresh-interval-seconds", 15L) * 20L);
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
+            try {
+                whitelistStore.reloadCache();
+            } catch (Exception exception) {
+                getLogger().warning("Failed to refresh whitelist cache: " + exception.getMessage());
+            }
+        }, refreshTicks, refreshTicks);
+
+        getLogger().info("EasyWhitelist enabled with PostgreSQL storage.");
+    }
+
+    @Override
+    public void onDisable() {
+        if (whitelistStore != null) {
+            whitelistStore.close();
+        }
+    }
+
+    public WhitelistStore getWhitelistStore() {
+        return whitelistStore;
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length == 0) {
+            sender.sendMessage(message("&eИспользование: /easywhitelist reload|add <nick>|remove <nick>|list"));
+            return true;
+        }
+
+        if (!sender.hasPermission("easywhitelist.admin")) {
+            sender.sendMessage(message("&cНет прав."));
+            return true;
+        }
+
+        String subCommand = args[0].toLowerCase();
+        try {
+            switch (subCommand) {
+                case "reload" -> {
+                    whitelistStore.reloadCache();
+                    sender.sendMessage(message("&aКеш вайтлиста обновлен."));
+                }
+                case "add" -> {
+                    if (args.length < 2) {
+                        sender.sendMessage(message("&eИспользование: /easywhitelist add <nick>"));
+                        return true;
+                    }
+
+                    whitelistStore.upsert(args[1], true);
+                    sender.sendMessage(message("&aНик &f" + args[1] + " &aдобавлен в вайтлист."));
+                }
+                case "remove" -> {
+                    if (args.length < 2) {
+                        sender.sendMessage(message("&eИспользование: /easywhitelist remove <nick>"));
+                        return true;
+                    }
+
+                    whitelistStore.remove(args[1]);
+                    sender.sendMessage(message("&aНик &f" + args[1] + " &aудален из вайтлиста."));
+                }
+                case "list" -> {
+                    Set<String> entries = whitelistStore.snapshot();
+                    String joined = entries.stream().sorted().limit(20).collect(Collectors.joining("&7, &f"));
+                    sender.sendMessage(message("&eWhitelisted users (&f" + entries.size() + "&e): &f" + (joined.isBlank() ? "&7empty" : joined)));
+                }
+                default -> sender.sendMessage(message("&eИспользование: /easywhitelist reload|add <nick>|remove <nick>|list"));
+            }
+        } catch (Exception exception) {
+            sender.sendMessage(message("&cОшибка: &f" + exception.getMessage()));
+        }
+
+        return true;
+    }
+
+    private Component message(String text) {
+        return LEGACY.deserialize(text);
     }
 }

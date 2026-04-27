@@ -1,0 +1,15 @@
+database:
+  # Full PostgreSQL JDBC URL. Example:
+  # jdbc-url: jdbc:postgresql://127.0.0.1:5432/minecraft?sslmode=disable
+  jdbc-url: jdbc:postgresql://127.0.0.1:5432/minecraft?sslmode=disable
+  # Optional if you do not embed credentials inside the URL.
+  username: postgres
+  password: ""
+  pool-size: 10
+  table: whitelist_entries
+
+# How often the plugin refreshes its cache from PostgreSQL.
+refresh-interval-seconds: 15
+
+# Accepts legacy ampersand color codes.
+kick-message: "&cYou are not on the whitelist."
