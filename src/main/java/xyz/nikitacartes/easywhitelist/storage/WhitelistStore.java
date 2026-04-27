@@ -59,10 +59,14 @@ public final class WhitelistStore implements AutoCloseable {
                     + ")");
         }
 
-        reloadCache();
+        reloadCache(true);
     }
 
     public void reloadCache() throws SQLException {
+        reloadCache(false);
+    }
+
+    public void reloadCache(boolean logResult) throws SQLException {
         Set<String> names = new HashSet<>();
 
         try (Connection connection = dataSource.getConnection();
@@ -75,7 +79,9 @@ public final class WhitelistStore implements AutoCloseable {
 
         cachedNames = Collections.unmodifiableSet(names);
         ready = true;
-        plugin.getLogger().info("Loaded " + cachedNames.size() + " whitelist entries from PostgreSQL.");
+        if (logResult) {
+            plugin.getLogger().info("Loaded " + cachedNames.size() + " whitelist entries from PostgreSQL.");
+        }
     }
 
     public boolean isWhitelisted(String name) {
@@ -99,7 +105,7 @@ public final class WhitelistStore implements AutoCloseable {
             statement.setBoolean(2, active);
             statement.executeUpdate();
         }
-        reloadCache();
+        reloadCache(false);
     }
 
     public void remove(String nickname) throws SQLException {
@@ -108,7 +114,7 @@ public final class WhitelistStore implements AutoCloseable {
             statement.setString(1, normalize(nickname));
             statement.executeUpdate();
         }
-        reloadCache();
+        reloadCache(false);
     }
 
     private String normalize(String value) {

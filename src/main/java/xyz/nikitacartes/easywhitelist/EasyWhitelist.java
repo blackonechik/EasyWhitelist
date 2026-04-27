@@ -39,7 +39,7 @@ public final class EasyWhitelist extends JavaPlugin implements CommandExecutor {
         long refreshTicks = Math.max(20L, getConfig().getLong("refresh-interval-seconds", 15L) * 20L);
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
             try {
-                whitelistStore.reloadCache();
+                whitelistStore.reloadCache(false);
             } catch (Exception exception) {
                 getLogger().warning("Failed to refresh whitelist cache: " + exception.getMessage());
             }
@@ -75,7 +75,7 @@ public final class EasyWhitelist extends JavaPlugin implements CommandExecutor {
                         return true;
                     }
 
-                    whitelistStore.reloadCache();
+                    whitelistStore.reloadCache(false);
                     sender.sendMessage(message("messages.reload-success"));
                 }
                 case "add" -> {
