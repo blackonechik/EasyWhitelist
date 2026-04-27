@@ -62,12 +62,7 @@ public final class EasyWhitelist extends JavaPlugin implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(message("&eИспользование: /easywhitelist reload|add <nick>|remove <nick>|list"));
-            return true;
-        }
-
-        if (!sender.hasPermission("easywhitelist.admin")) {
-            sender.sendMessage(message("&cНет прав."));
+            sender.sendMessage(message("messages.usage"));
             return true;
         }
 
@@ -75,42 +70,78 @@ public final class EasyWhitelist extends JavaPlugin implements CommandExecutor {
         try {
             switch (subCommand) {
                 case "reload" -> {
+                    if (!hasPermission(sender, "easywhitelist.admin.reload")) {
+                        sender.sendMessage(message("messages.no-permission"));
+                        return true;
+                    }
+
                     whitelistStore.reloadCache();
-                    sender.sendMessage(message("&aКеш вайтлиста обновлен."));
+                    sender.sendMessage(message("messages.reload-success"));
                 }
                 case "add" -> {
                     if (args.length < 2) {
-                        sender.sendMessage(message("&eИспользование: /easywhitelist add <nick>"));
+                        sender.sendMessage(message("messages.usage-add"));
+                        return true;
+                    }
+
+                    if (!hasPermission(sender, "easywhitelist.admin.add")) {
+                        sender.sendMessage(message("messages.no-permission"));
                         return true;
                     }
 
                     whitelistStore.upsert(args[1], true);
-                    sender.sendMessage(message("&aНик &f" + args[1] + " &aдобавлен в вайтлист."));
+                    sender.sendMessage(message("messages.add-success", "{nick}", args[1]));
                 }
                 case "remove" -> {
                     if (args.length < 2) {
-                        sender.sendMessage(message("&eИспользование: /easywhitelist remove <nick>"));
+                        sender.sendMessage(message("messages.usage-remove"));
+                        return true;
+                    }
+
+                    if (!hasPermission(sender, "easywhitelist.admin.remove")) {
+                        sender.sendMessage(message("messages.no-permission"));
                         return true;
                     }
 
                     whitelistStore.remove(args[1]);
-                    sender.sendMessage(message("&aНик &f" + args[1] + " &aудален из вайтлиста."));
+                    sender.sendMessage(message("messages.remove-success", "{nick}", args[1]));
                 }
                 case "list" -> {
+                    if (!hasPermission(sender, "easywhitelist.admin.list")) {
+                        sender.sendMessage(message("messages.no-permission"));
+                        return true;
+                    }
+
                     Set<String> entries = whitelistStore.snapshot();
                     String joined = entries.stream().sorted().limit(20).collect(Collectors.joining("&7, &f"));
-                    sender.sendMessage(message("&eWhitelisted users (&f" + entries.size() + "&e): &f" + (joined.isBlank() ? "&7empty" : joined)));
+                    sender.sendMessage(message("messages.list-header", "{count}", String.valueOf(entries.size()), "{list}", joined.isBlank() ? messageText("messages.list-empty") : joined));
                 }
-                default -> sender.sendMessage(message("&eИспользование: /easywhitelist reload|add <nick>|remove <nick>|list"));
+                default -> sender.sendMessage(message("messages.usage"));
             }
         } catch (Exception exception) {
-            sender.sendMessage(message("&cОшибка: &f" + exception.getMessage()));
+            sender.sendMessage(message("messages.error", "{error}", exception.getMessage()));
         }
 
         return true;
     }
 
+    private boolean hasPermission(CommandSender sender, String permission) {
+        return sender.hasPermission("easywhitelist.admin") || sender.hasPermission(permission);
+    }
+
     private Component message(String text) {
+        return LEGACY.deserialize(messageText(text));
+    }
+
+    private Component message(String path, String... replacements) {
+        String text = messageText(path);
+        for (int index = 0; index + 1 < replacements.length; index += 2) {
+            text = text.replace(replacements[index], replacements[index + 1]);
+        }
         return LEGACY.deserialize(text);
+    }
+
+    private String messageText(String path) {
+        return getConfig().getString(path, path);
     }
 }

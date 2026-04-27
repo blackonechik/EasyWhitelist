@@ -10,5 +10,17 @@ commands:
     usage: /easywhitelist reload|add <nick>|remove <nick>|list
 permissions:
   easywhitelist.admin:
+    description: Grants access to all EasyWhitelist admin commands
+    default: op
+  easywhitelist.admin.reload:
     description: Allows reloading the whitelist cache
+    default: op
+  easywhitelist.admin.add:
+    description: Allows adding a nickname to the whitelist
+    default: op
+  easywhitelist.admin.remove:
+    description: Allows removing a nickname from the whitelist
+    default: op
+  easywhitelist.admin.list:
+    description: Allows listing current whitelist entries
     default: op

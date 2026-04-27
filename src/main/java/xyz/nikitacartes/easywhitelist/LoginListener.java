@@ -20,13 +20,13 @@ public final class LoginListener implements Listener {
     @EventHandler
     public void onAsyncPreLogin(AsyncPlayerPreLoginEvent event) {
         if (plugin.getWhitelistStore() == null || !plugin.getWhitelistStore().isReady()) {
-            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, LEGACY.deserialize("&cWhitelist is still initializing. Try again in a moment."));
+            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, LEGACY.deserialize(plugin.getConfig().getString("messages.init-not-ready", "&cWhitelist is still initializing. Try again in a moment.")));
             return;
         }
 
         String playerName = event.getName().toLowerCase(Locale.ROOT);
         if (!plugin.getWhitelistStore().isWhitelisted(playerName)) {
-            String kickMessage = plugin.getConfig().getString("kick-message", "&cYou are not on the whitelist.");
+            String kickMessage = plugin.getConfig().getString("messages.kick-message", "&cYou are not on the whitelist.");
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_WHITELIST, LEGACY.deserialize(kickMessage));
         }
     }

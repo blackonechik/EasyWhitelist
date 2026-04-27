@@ -1,41 +1,57 @@
-## Easy Whitelist Mod
+## Easy Whitelist
 
-Simple mod that changes whitelist (also banlist and op-list) behaviour from uuid-based to name-based, allowing it to
-be use at offline mode.
+Paper plugin that checks whitelist entries from PostgreSQL instead of `whitelist.json`.
 
-### Note
+### What it does
 
-1) Mod adds following offline version of commands:
-    - Vanilla `whitelist` in comparison adds lowercase nicknames
-    - `easywhitelist add <nickname>`
-    - `easywhitelist remove <nickname>`
-    - `easyban <nickname>`
-    - `easypardon <nickname>`
-    - `easyop <nickname>`
-    - `easydeop <nickname>`
-3) All commands are case-**sensitive**
-4) Elements in `whitelist.json`, `ops.json`, `banned-players.json` must still contain both name and uuid
-    - uuids must be in correct format, but may be random
+- Blocks players whose nickname is not present in the database.
+- Uses a single JDBC URL in `config.yml`.
+- Keeps an in-memory cache and refreshes it on a timer.
+- Includes admin commands to reload, add, remove, and list whitelist entries.
 
-```
-  {
-    "uuid": "01234567-89ab-def0-1234-56789abcdef0",
-    "name": "NikitaCartes"
-  }
+### Configuration
+
+Set the PostgreSQL connection in `config.yml`:
+
+```yaml
+database:
+  jdbc-url: jdbc:postgresql://127.0.0.1:5432/minecraft?sslmode=disable
 ```
 
-5) List of permissions:
-* `easywhitelist.commands.easywhitelist.root`
-  * `easywhitelist.commands.easywhitelist.add`
-  * `easywhitelist.commands.easywhitelist.remove`
-* `easywhitelist.commands.easypardon`
-* `easywhitelist.commands.easyop`
-* `easywhitelist.commands.easydeop`
-* `easywhitelist.commands.easyban`
+Put the database host, port, database name, user, password, and SSL options into the JDBC URL itself if you need them.
 
-[Discord](https://discord.gg/UY4nhvUzaK)
+### Commands
 
-[CurseForge](https://www.curseforge.com/minecraft/mc-mods/easywhitelist), [Modrinth](https://modrinth.com/mod/easywhitelist)
+- `/easywhitelist reload`
+- `/easywhitelist add <nick>`
+- `/easywhitelist remove <nick>`
+- `/easywhitelist list`
 
-[My authentication mod](https://github.com/NikitaCartes/EasyAuth), for Fabric servers.
+### Permissions
+
+- `easywhitelist.admin.reload`
+- `easywhitelist.admin.add`
+- `easywhitelist.admin.remove`
+- `easywhitelist.admin.list`
+
+The parent permission `easywhitelist.admin` is also available and grants all sub-permissions.
+
+### Database table
+
+The plugin creates the table automatically if it does not exist. The current schema is:
+
+```sql
+CREATE TABLE IF NOT EXISTS whitelist_entries (
+    nickname VARCHAR(16) PRIMARY KEY,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### For your website
+
+Your backend can write directly to `whitelist_entries` by inserting or updating `nickname` and `active`.
+
+[SQL example](sql/whitelist.sql)
  
